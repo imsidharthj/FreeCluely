@@ -3,6 +3,19 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+images
+python-frontend/=0.4.5
+python-frontend/=0.6.0
+python-frontend/=0.10.0
+python-frontend/=0.24.0
+python-frontend/=1.6.0
+python-frontend/=1.10.0
+python-frontend/=1.21.0
+python-frontend/=3.8.0
+python-frontend/=6.4.0
+python-frontend/=9.0.0
+python-frontend/=10.4
+
 # C extensions
 *.so
 
