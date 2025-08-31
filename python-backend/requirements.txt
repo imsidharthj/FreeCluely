@@ -1,0 +1,64 @@
+# FastAPI and server dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+python-multipart==0.0.6
+
+# Ubuntu/Wayland system integration
+dbus-python>=1.2.18
+pydbus==0.6.0
+evdev==1.6.1
+sounddevice==0.4.6
+numpy>=1.24.0
+
+# GUI/Overlays for Wayland
+PyQt6>=6.6.0
+
+# OCR and image processing
+pytesseract==0.3.10
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Voice transcription (Whisper ASR) - NEW
+transformers>=4.35.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# AI and HTTP clients
+aiohttp==3.9.1
+requests==2.31.0
+openai>=1.12.0  # Updated for AsyncOpenAI compatibility
+packaging>=21.0  # Added for version checking
+
+# Data handling
+pydantic>=2.5.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Async and utilities
+asyncio-mqtt==0.16.1
+python-dotenv==1.0.0
+tenacity==8.2.3
+
+# Logging and monitoring
+structlog==23.2.0
+rich==13.7.0
+
+# JWT handling for authentication
+PyJWT==2.8.0
+authlib==1.2.1
+cryptography>=41.0.0
+
+# Configuration management
+PyYAML==6.0.1
+
+# System integration
+plyer==2.1.0
+psutil==5.9.6
+
+# Database
+aiosqlite==0.19.0
+sqlalchemy[asyncio]>=2.0.0
+
+# Cross-platform input handling
+pynput>=1.7.6
