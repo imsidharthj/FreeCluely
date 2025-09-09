@@ -41,17 +41,19 @@ class TranscriptionService:
         # Whisper expects 16kHz audio
         self.WHISPER_SAMPLE_RATE = 16000
         
-        # Initialize if available
-        if WHISPER_AVAILABLE:
-            asyncio.create_task(self._initialize_whisper())
-        else:
+        # Check availability but don't initialize yet (lazy loading)
+        if not WHISPER_AVAILABLE:
             self.logger.warning("Whisper dependencies not available. Install transformers and torch.")
     
     async def _initialize_whisper(self) -> bool:
-        """Initialize Whisper ASR model asynchronously"""
+        """Initialize Whisper ASR model asynchronously (lazy loading)"""
         try:
             if self.whisper_pipeline is not None:
                 return True
+            
+            if not WHISPER_AVAILABLE:
+                self.logger.error("Cannot initialize Whisper: dependencies not available")
+                return False
             
             self.logger.info(f"Loading Whisper model: {self.model_name}")
             
@@ -83,6 +85,10 @@ class TranscriptionService:
     
     async def transcribe_audio_data(self, audio_data: np.ndarray, sample_rate: int) -> TranscriptionResult:
         """Transcribe numpy audio data"""
+        # Ensure model is loaded (lazy loading)
+        if not self.is_loaded:
+            await self._initialize_whisper()
+        
         if not self.is_loaded or not WHISPER_AVAILABLE:
             return TranscriptionResult(
                 text="",
