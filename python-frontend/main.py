@@ -152,11 +152,46 @@ class ConstellaHorizonApp:
             self.overlay_manager.overlay_shown.connect(self._on_overlay_shown)
             self.overlay_manager.overlay_hidden.connect(self._on_overlay_hidden)
             
+            # Connect voice-related signals
+            self.overlay_manager.voice_detected.connect(self._on_voice_detected)
+            self.overlay_manager.voice_transcribed.connect(self._on_voice_transcribed)
+            
             self.logger.info("Overlay manager initialized")
+            
+            # Start voice monitoring if enabled
+            if self.settings.voice.enabled:
+                asyncio.create_task(self._start_voice_monitoring())
             
         except Exception as e:
             self.logger.error(f"Failed to setup overlay manager: {e}")
-    
+
+    async def _start_voice_monitoring(self):
+        """Start voice monitoring after a short delay"""
+        try:
+            # Wait a bit for everything to initialize
+            await asyncio.sleep(2.0)
+            
+            if self.overlay_manager:
+                success = await self.overlay_manager.start_voice_monitoring()
+                if success:
+                    self.logger.info("Voice monitoring started successfully")
+                else:
+                    self.logger.warning("Voice monitoring failed to start")
+        except Exception as e:
+            self.logger.error(f"Failed to start voice monitoring: {e}")
+
+    def _on_voice_detected(self):
+        """Handle voice detection signal"""
+        self.logger.debug("Voice activity detected")
+
+    def _on_voice_transcribed(self, text: str):
+        """Handle voice transcription signal"""
+        self.logger.info(f"Voice transcribed: {text[:50]}...")
+        
+        # Could show a subtle notification or update system tray tooltip
+        if self.system_tray:
+            self.system_tray.setToolTip(f"FreeCluely - Last heard: {text[:30]}...")
+
     def _setup_system_tray(self):
         """Setup system tray icon and menu"""
         if not QSystemTrayIcon.isSystemTrayAvailable():
