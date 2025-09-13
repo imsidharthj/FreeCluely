@@ -25,7 +25,7 @@ class APIResponse:
 class BackendClient:
     """Client for communicating with the Python backend"""
     
-    def __init__(self, base_url: str = "http://103.42.50.224:8000"):
+    def __init__(self, base_url: str = "http://http://127.0.0.1:8000"):
         self.base_url = base_url
         self.ws_url = base_url.replace("http", "ws") + "/ws"
         self.session: Optional[aiohttp.ClientSession] = None
@@ -578,6 +578,23 @@ class BackendClient:
                 status_code=500
             )
     
+    async def send_meeting_context(self, meeting_text: str) -> APIResponse:
+        """Send meeting context to backend for analysis"""
+        try:
+            data = {
+                'meeting_text': meeting_text,
+                'context_type': 'meeting_audio'
+            }
+            return await self.post("/api/v1/context/meeting", data)
+        except Exception as e:
+            self.logger.error(f"Failed to send meeting context: {e}")
+            return APIResponse(
+                success=False,
+                data=None,
+                error=str(e),
+                status_code=500
+            )
+
     async def get_voice_status(self) -> APIResponse:
         """Get voice transcription service status"""
         try:
