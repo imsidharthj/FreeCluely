@@ -14,6 +14,7 @@ from ui.windows.auto_context_window import AutoContextWindow
 from config.settings import Settings
 from services.backend_client import BackendClient
 from services.shortcut_manager import ShortcutManager
+from utils.voice_input import VoiceInputManager, AudioConfig
 
 
 class OverlayManager(QObject):
@@ -23,6 +24,8 @@ class OverlayManager(QObject):
     overlay_shown = pyqtSignal(str)  # overlay_type
     overlay_hidden = pyqtSignal(str)  # overlay_type
     context_changed = pyqtSignal(dict)  # context_data
+    voice_detected = pyqtSignal()
+    voice_transcribed = pyqtSignal(str)  # transcribed text
     
     def __init__(self, settings: Settings, backend_client: Optional[BackendClient] = None):
         super().__init__()
@@ -43,8 +46,14 @@ class OverlayManager(QObject):
         # Services
         self.shortcut_manager: Optional[ShortcutManager] = None
         
+        # Voice input manager for continuous monitoring
+        self.voice_manager: Optional[VoiceInputManager] = None
+        self.system_audio_manager: Optional[VoiceInputManager] = None
+        self.voice_monitoring_enabled = False
+        
         # Initialize
         self._setup_shortcuts()
+        self._setup_voice_monitoring()
         self._connect_backend()
         
         # Context monitoring timer
@@ -80,6 +89,138 @@ class OverlayManager(QObject):
             
         except Exception as e:
             self.logger.error(f"Failed to setup shortcuts: {e}")
+    
+    def _setup_voice_monitoring(self):
+        """Setup voice input monitoring for both microphone and system audio"""
+        try:
+            if not self.backend_client:
+                self.logger.warning("No backend client - voice monitoring disabled")
+                return
+                
+            # Create audio configuration
+            audio_config = AudioConfig(
+                sample_rate=16000,
+                channels=1,
+                chunk_size=1024,
+                device_id=None  # Use default device
+            )
+            
+            # Setup microphone monitoring
+            self.voice_manager = VoiceInputManager(audio_config, capture_system_audio=False)
+            self.voice_manager.set_backend_client(self.backend_client)
+            self.voice_manager.configure_voice_to_ai(auto_send=True)
+            
+            # Setup system audio monitoring (for meeting transcription)
+            self.system_audio_manager = VoiceInputManager(audio_config, capture_system_audio=True)
+            self.system_audio_manager.set_backend_client(self.backend_client)
+            self.system_audio_manager.configure_voice_to_ai(auto_send=False)  # Process manually
+            
+            # Configure callbacks
+            self.voice_manager.set_callbacks(
+                on_voice_detected=self._on_voice_detected,
+                on_transcription_ready=self._on_voice_transcribed
+            )
+            
+            self.system_audio_manager.set_callbacks(
+                on_voice_detected=self._on_system_audio_detected,
+                on_transcription_ready=self._on_system_audio_transcribed
+            )
+            
+            # Configure VAD for better meeting detection
+            self.voice_manager.configure_vad(
+                silence_threshold=0.02,
+                min_voice_duration=1.0,
+                silence_duration=2.0
+            )
+            
+            self.system_audio_manager.configure_vad(
+                silence_threshold=0.01,
+                min_voice_duration=2.0,  # Longer for system audio
+                silence_duration=3.0
+            )
+            
+            self.logger.info("Voice monitoring setup complete")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to setup voice monitoring: {e}")
+    
+    async def start_voice_monitoring(self):
+        """Start continuous voice monitoring for meeting detection"""
+        if not self.voice_manager or not self.system_audio_manager:
+            self.logger.warning("Voice managers not initialized")
+            return False
+            
+        try:
+            # Start microphone monitoring
+            mic_started = await self.voice_manager.start_recording()
+            
+            # Start system audio monitoring for meeting transcription
+            system_started = await self.system_audio_manager.start_recording()
+            
+            if mic_started or system_started:
+                self.voice_monitoring_enabled = True
+                self.logger.info("Voice monitoring started")
+                return True
+            else:
+                self.logger.error("Failed to start voice monitoring")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error starting voice monitoring: {e}")
+            return False
+    
+    async def stop_voice_monitoring(self):
+        """Stop voice monitoring"""
+        if self.voice_manager:
+            await self.voice_manager.stop_recording()
+        if self.system_audio_manager:
+            await self.system_audio_manager.stop_recording()
+        self.voice_monitoring_enabled = False
+        self.logger.info("Voice monitoring stopped")
+    
+    def _on_voice_detected(self):
+        """Handle user voice detection"""
+        self.voice_detected.emit()
+        self.logger.debug("User voice detected")
+    
+    def _on_system_audio_detected(self):
+        """Handle system audio detection (meeting participants)"""
+        self.logger.debug("System audio detected (meeting)")
+    
+    def _on_voice_transcribed(self, transcription):
+        """Handle user voice transcription"""
+        if transcription.success and transcription.text.strip():
+            self.voice_transcribed.emit(transcription.text)
+            self.logger.info(f"User voice transcribed: {transcription.text[:50]}...")
+            
+            # Auto-show AI assist for voice queries
+            if self.settings.voice.auto_show_ai_assist:
+                if not self.is_overlay_active("ai_assist"):
+                    self.show_ai_assist()
+    
+    def _on_system_audio_transcribed(self, transcription):
+        """Handle system audio transcription (meeting content)"""
+        if transcription.success and transcription.text.strip():
+            self.logger.info(f"Meeting audio transcribed: {transcription.text[:50]}...")
+            
+            # Store meeting context for AI assistance
+            self.current_context['meeting_audio'] = transcription.text
+            
+            # Auto-refresh context window with meeting content
+            if self.auto_context_window and "auto_context" in self.active_overlays:
+                # Update context with meeting information
+                asyncio.create_task(self._update_meeting_context(transcription.text))
+    
+    async def _update_meeting_context(self, meeting_text: str):
+        """Update context with meeting information"""
+        try:
+            # Send meeting transcript to backend for context analysis
+            if self.backend_client:
+                response = await self.backend_client.send_meeting_context(meeting_text)
+                if response.success:
+                    self.logger.debug("Meeting context updated")
+        except Exception as e:
+            self.logger.error(f"Failed to update meeting context: {e}")
     
     def _connect_backend(self):
         """Connect to backend for real-time updates"""
@@ -326,5 +467,8 @@ class OverlayManager(QObject):
         if self.auto_context_window:
             self.auto_context_window.deleteLater()
             self.auto_context_window = None
+        
+        # Stop voice monitoring
+        asyncio.create_task(self.stop_voice_monitoring())
         
         self.logger.info("Overlay manager cleaned up")
