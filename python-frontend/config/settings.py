@@ -47,8 +47,8 @@ class WindowConfig:
 @dataclass
 class BackendConfig:
     """Backend service configuration"""
-    base_url: str = "http://103.42.50.224:8000"
-    websocket_url: str = "ws://103.42.50.224:8000/ws"
+    base_url: str = "http://http://127.0.0.1:8000"
+    websocket_url: str = "ws://http://127.0.0.1:8000/ws"
     api_timeout: int = 30
     reconnect_attempts: int = 3
 
@@ -61,6 +61,17 @@ class AudioConfig:
     sample_rate: int = 16000
     channels: int = 1
     chunk_size: int = 1024
+
+
+@dataclass
+class VoiceConfig:
+    """Voice processing configuration"""
+    enabled: bool = True
+    auto_show_ai_assist: bool = True
+    system_audio_monitoring: bool = True
+    voice_activity_threshold: float = 0.02
+    min_voice_duration: float = 1.0
+    silence_duration: float = 2.0
 
 
 @dataclass
@@ -90,6 +101,7 @@ class Settings:
         self.windows = WindowConfig()
         self.backend = BackendConfig()
         self.audio = AudioConfig()
+        self.voice = VoiceConfig()
         self.ui = UIConfig()
         
         # API Keys (stored separately for security)
@@ -137,6 +149,11 @@ class Settings:
                     audio_data = data['audio']
                     self.audio = AudioConfig(**audio_data)
                 
+                # Load voice config
+                if 'voice' in data:
+                    voice_data = data['voice']
+                    self.voice = VoiceConfig(**voice_data)
+                
                 # Load UI config
                 if 'ui' in data:
                     ui_data = data['ui']
@@ -161,6 +178,7 @@ class Settings:
                 'windows': asdict(self.windows),
                 'backend': asdict(self.backend),
                 'audio': asdict(self.audio),
+                'voice': asdict(self.voice),
                 'ui': asdict(self.ui),
                 'api_keys': self.api_keys
             }
@@ -195,5 +213,6 @@ class Settings:
             'windows': asdict(self.windows),
             'backend': asdict(self.backend),
             'audio': asdict(self.audio),
+            'voice': asdict(self.voice),
             'ui': asdict(self.ui)
         }
