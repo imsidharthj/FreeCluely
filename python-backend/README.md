@@ -224,7 +224,7 @@ GET /api/v1/tags/status - Get tag manager status
 python main.py
 
 # Test API endpoints
-curl http://103.42.50.224:8000/api/v1/health
+curl http://127.0.0.1:8000/api/v1/health
 
 # Test WebSocket
 wscat -c ws://localhost:8000/ws
@@ -311,7 +311,7 @@ JWT_SECRET_KEY=your_jwt_secret_here
 
 2. **API Connection Failed**
    - Check if backend is running on port 8000
-   - Verify frontend can reach `http://103.42.50.224:8000`
+   - Verify frontend can reach `http://127.0.0.1:8000`
    - Check backend logs for errors
 
 3. **Context Processing Issues**
